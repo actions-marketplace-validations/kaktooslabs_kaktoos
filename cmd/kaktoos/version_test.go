@@ -25,7 +25,7 @@ func TestVersionCommand(t *testing.T) {
 
 	// Verify output
 	output := buf.String()
-	expected := "v1.2.3\n"
+	expected := "Kaktoos v1.2.3\n"
 	if output != expected {
 		t.Errorf("Expected output %q, got: %q", expected, output)
 	}
@@ -50,7 +50,7 @@ func TestVersionCommandDefaultDev(t *testing.T) {
 
 	// Verify output
 	output := buf.String()
-	expected := "dev\n"
+	expected := "Kaktoos dev\n"
 	if output != expected {
 		t.Errorf("Expected output %q, got: %q", expected, output)
 	}
