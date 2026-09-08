@@ -1,0 +1,13 @@
+name: PaymentSuccess
+steps:
+  - name: Check status code
+    operation: getStatus
+    request:
+      operationName: getStatus
+      headers:
+        Accept: application/json
+    assert:
+      type: equals
+      targetPath: $.success
+      expectedValue: true
+# This is a valid, minimal example that should pass loading.

@@ -1,0 +1,37 @@
+# Binaries
+kaktoos
+kaktoos-test
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output coverage files
+*.out
+coverage.out
+
+# Go workspace file
+go.work
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Development and internal documentation
+.kiro/
+.opencode/
+.claude/
+AGENTS.md
+opencode.json
+
+# Temporary test files
+examples/environments/test.yml
+RELEASE_SUMMARY.md

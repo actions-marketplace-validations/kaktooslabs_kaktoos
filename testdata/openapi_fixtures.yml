@@ -1,0 +1,72 @@
+openapi: 3.0.0
+info:
+  title: Kaktoos API Fixtures
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+paths:
+  /v2/widgets:
+    get:
+      operationId: listWidgets
+      summary: Lists all available widgets.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          description: Filter widgets by category.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of widgets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Widget'
+        '401':
+          description: Unauthorized
+  /v2/widgets/{widgetId}:
+    get:
+      operationId: getWidgetDetails
+      summary: Gets details for a specific widget.
+      parameters:
+        - name: widgetId
+          in: path
+          required: true
+          description: The ID of the widget.
+          schema:
+            type: uuid
+      responses:
+        '200':
+          description: Widget details successfully retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Widget'
+        '404':
+          description: Widget not found
+components:
+  schemas:
+    Widget:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the widget.
+          example: widget-123
+        name:
+          type: string
+          description: Display name of the widget.
+          example: Smart Widget
+        version:
+          type: number
+          description: Widget version number.
+          example: 2
+        isActive:
+          type: boolean
+          description: Whether the widget is currently active.
+          example: true
+EOF

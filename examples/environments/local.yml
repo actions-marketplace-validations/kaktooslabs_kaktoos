@@ -1,0 +1,6 @@
+base_url: http://localhost:8080
+variables:
+  testUser: "test-user-123"
+  authToken: "test-token"
+headers:
+  Content-Type: application/json

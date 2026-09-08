@@ -1,0 +1,30 @@
+name: Create and Get User
+
+steps:
+  - name: Create user
+    operation: createUser
+    request:
+      body: |
+        {
+          "name": "Test User"
+        }
+    extract:
+      userId: $.id
+    assert:
+      status: 201
+      body:
+        - path: $.name
+          equals: "Test User"
+
+  - name: Get created user
+    operation: getUser
+    request:
+      path:
+        id: "{{userId}}"
+    assert:
+      status: 200
+      body:
+        - path: $.id
+          equals: "{{userId}}"
+        - path: $.name
+          equals: "Test User"
