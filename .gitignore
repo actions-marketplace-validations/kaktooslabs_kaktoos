@@ -35,3 +35,6 @@ opencode.json
 # Temporary test files
 examples/environments/test.yml
 RELEASE_SUMMARY.md
+# Added by goreleaser init:
+dist/
+.goreleaser.yaml
