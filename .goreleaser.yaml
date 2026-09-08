@@ -43,6 +43,20 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+homebrew_casks:
+  - name: kaktoos
+    repository:
+      owner: KaktoosLabs
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+
+    homepage: https://kaktoos.dev
+
+    description: Git-native, scenario-based API regression testing CLI powered by OpenAPI
+
+    binaries:
+      - kaktoos
+
 changelog:
   sort: asc
   filters:
