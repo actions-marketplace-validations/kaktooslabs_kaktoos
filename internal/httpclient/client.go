@@ -33,3 +33,6 @@ func NewClient() *Client {
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	return c.httpClient.Do(req)
 }
+
+// HTTPClient returns the configured standard library client.
+func (c *Client) HTTPClient() *http.Client { return c.httpClient }

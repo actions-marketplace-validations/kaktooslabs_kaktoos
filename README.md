@@ -1,10 +1,54 @@
 # Kaktoos
 
-> Test how your APIs work together.
+> Independent verification for API integrations — including code written by AI coding agents.
 
-**Kaktoos is a Git-native, scenario-based API regression testing CLI powered by OpenAPI.**
+Kaktoos verifies API integrations against **OpenAPI contracts and real API behavior**.
 
-Define your API specification and multi-step test scenarios as version-controlled files, then validate and run them locally or in CI/CD.
+Use Kaktoos to:
+
+- Run multi-step API workflows
+- Verify responses against OpenAPI contracts
+- Catch integration mistakes independently of application tests
+- Expose Kaktoos to AI coding agents through MCP
+- Run the same verification locally or in CI/CD
+- Keep API verification scenarios version-controlled in Git
+
+```text
+AI coding agent / Developer
+          │
+          ▼
+   API integration code
+          │
+          ▼
+       Kaktoos
+          │
+          ├── Discover OpenAPI operations
+          ├── Execute real API workflows
+          ├── Validate responses against OpenAPI
+          ├── Evaluate assertions
+          └── Return structured failures
+                    │
+                    ▼
+              Fix integration
+                    │
+                    ▼
+               Run again
+                    │
+                    ▼
+                  PASS
+```
+
+Kaktoos works entirely without AI. AI coding agents are an optional interface through the Model Context Protocol (MCP).
+
+---
+
+## Why Kaktoos?
+
+Testing an individual API endpoint is easy.
+
+Testing whether multiple APIs still work **together** is where things become complicated.
+
+For example:
 
 ```text
 Create Customer
@@ -16,19 +60,67 @@ Make Payment
 Verify Payment
 ```
 
-**Git tracks what changed. Kaktoos tells you whether it still works.**
+A single endpoint test may pass while the complete workflow is broken.
 
-## Why Kaktoos?
+Kaktoos lets developers and QA engineers define repeatable API workflows as version-controlled scenarios and execute them against real APIs.
 
-Testing an individual API endpoint is easy.
+The OpenAPI specification provides the API contract. Kaktoos verifies that the real API behavior and workflow still match that contract.
 
-Testing how multiple APIs work together is where things become complicated.
+> **Git tracks what changed. Kaktoos tells you whether it still works.**
 
-Kaktoos lets developers and QA engineers define repeatable API workflows as version-controlled scenarios.
+---
+
+## Key Capabilities
+
+### Multi-step API workflows
+
+Define workflows where data extracted from one API response is used by subsequent requests.
+
+```text
+Create user
+     │
+     │ $.id
+     ▼
+  userId
+     │
+     ▼
+GET /users/{{userId}}
+```
+
+### OpenAPI-powered
+
+Kaktoos uses your OpenAPI specification to resolve API operations.
+
+Your OpenAPI specification remains the contract, while Kaktoos scenarios describe how those APIs should work together.
+
+### Independent response verification
+
+Kaktoos can validate API responses against the OpenAPI response schema, in addition to explicit assertions defined in scenarios.
+
+This can catch:
+
+- Undeclared status codes
+- Content-Type mismatches
+- Missing required fields
+- Incorrect response types
+- Failed enum/pattern constraints
+- Other schema violations
+
+### AI coding agent integration
+
+Kaktoos exposes an MCP server that allows AI coding agents to:
+
+1. Discover API operations from OpenAPI
+2. Construct scenarios
+3. Validate scenarios before execution
+4. Execute workflows against real APIs
+5. Receive structured failures
+6. Fix the integration
+7. Run verification again
 
 ### Git-native
 
-Keep your API specification, scenarios, and environments in Git:
+Keep your API specification, scenarios, and environments in Git.
 
 ```text
 my-api-tests/
@@ -45,23 +137,23 @@ my-api-tests/
 
 API test changes can be reviewed through normal Git commits and pull requests.
 
-### OpenAPI-powered
-
-Kaktoos uses your OpenAPI specification to resolve API operations.
-
-Your OpenAPI specification remains the contract, while Kaktoos scenarios describe how those APIs should work together.
-
 ### CI/CD ready
 
 Run the same scenarios locally or in your CI/CD pipeline.
 
-A failed scenario produces a non-zero exit code, allowing your API regression tests to fail a CI job.
+A failed scenario produces a non-zero exit code, allowing API regression tests to fail a CI job.
 
 ### No server required
 
-Kaktoos runs as a standalone CLI. There is no Kaktoos server, database, or account required.
+Kaktoos runs as a standalone CLI.
 
-## How It Works
+There is no Kaktoos server, database, or account required for local verification.
+
+---
+
+# How It Works
+
+Kaktoos combines an OpenAPI specification, an environment, and one or more scenarios.
 
 ```text
 openapi.yml
@@ -71,22 +163,25 @@ scenario.yml
 environment.yml
      │
      ▼
-   Kaktoos
+  Kaktoos
      │
      ├── Validate configuration
      ├── Resolve OpenAPI operations
      ├── Execute API requests
      ├── Extract response values
      ├── Substitute variables
+     ├── Validate response schemas
      ├── Evaluate assertions
      └── Report results
 ```
 
-## Installation
+---
+
+# Installation
 
 Kaktoos is distributed as a standalone binary. You don't need Go installed.
 
-### Download a release
+## Download a release
 
 Download the latest release for your operating system from:
 
@@ -101,7 +196,7 @@ Supported platforms:
 - Windows ARM64
 - Windows AMD64
 
-### Go developers
+## Go developers
 
 If you already have Go installed:
 
@@ -109,7 +204,7 @@ If you already have Go installed:
 go install github.com/KaktoosLabs/kaktoos/cmd/kaktoos@v1.0.0
 ```
 
-### Build from source
+## Build from source
 
 ```bash
 git clone https://github.com/KaktoosLabs/kaktoos.git
@@ -117,9 +212,21 @@ cd kaktoos
 go build ./cmd/kaktoos
 ```
 
-## Quick Start
+## macOS Note
 
-### 1. Validate your test configuration
+Kaktoos is currently not signed and notarized by Apple. As a result, macOS may display a security warning when running the prebuilt binary.
+
+If you already have Go installed, you can alternatively install Kaktoos with:
+
+```bash
+go install github.com/KaktoosLabs/kaktoos/cmd/kaktoos@v1.0.1
+```
+
+---
+
+# Quick Start
+
+## 1. Validate your test configuration
 
 ```bash
 kaktoos validate \
@@ -137,7 +244,7 @@ Example output:
 All files valid!
 ```
 
-### 2. Run a scenario
+## 2. Run a scenario
 
 ```bash
 kaktoos run \
@@ -146,7 +253,7 @@ kaktoos run \
   --scenario scenarios/test.yml
 ```
 
-### 3. Check the version
+## 3. Check the version
 
 ```bash
 kaktoos version
@@ -158,9 +265,11 @@ Example:
 Kaktoos v1.0.0
 ```
 
-## Example
+---
 
-### OpenAPI Specification
+# Example
+
+## OpenAPI Specification
 
 Kaktoos uses an OpenAPI 3.x specification with `operationId` values for API operations.
 
@@ -195,7 +304,9 @@ paths:
           description: User retrieved
 ```
 
-### Environment
+## Environment
+
+Environment files define the target API and reusable configuration.
 
 ```yaml
 name: local
@@ -209,7 +320,9 @@ headers:
   Content-Type: application/json
 ```
 
-### Scenario
+## Scenario
+
+Scenarios describe multi-step API workflows.
 
 ```yaml
 name: User Management Test
@@ -257,15 +370,17 @@ Create user
 GET /users/{{userId}}
 ```
 
-## Configuration
+---
 
-### OpenAPI
+# Configuration
+
+## OpenAPI
 
 Kaktoos uses an OpenAPI 3.x specification with `operationId` values for API operations.
 
 The `operationId` is used by scenarios to identify the API operation to execute.
 
-### Environment
+## Environment
 
 Environment files define the target API and reusable configuration.
 
@@ -283,23 +398,25 @@ headers:
 
 Secrets can be provided through environment variables rather than committing them to Git.
 
-### Scenario
+## Scenario
 
 Scenarios describe multi-step API workflows.
 
 Each step can define:
 
 - API operation
-- request path parameters
-- query parameters
-- headers
-- request body
-- response value extraction
-- assertions
+- Request path parameters
+- Query parameters
+- Headers
+- Request body
+- Response value extraction
+- Assertions
 
 Variables can be extracted from one response and used in subsequent steps.
 
-## Assertions
+---
+
+# Assertions
 
 Kaktoos currently supports:
 
@@ -327,9 +444,302 @@ assert:
       equals: "{{userId}}"
 ```
 
-## CI/CD
+---
 
-Kaktoos is designed to run in CI/CD pipelines.
+# Response Schema Validation
+
+Kaktoos can check every response against the schema declared in your OpenAPI specification — not just the assertions you wrote by hand.
+
+```bash
+kaktoos run ... --schema-mode warn
+kaktoos run ... --schema-mode strict
+kaktoos run ... --schema-mode off
+```
+
+The default is `off`, so existing scenarios behave exactly as before.
+
+`strict` is recommended for CI and agent-driven verification.
+
+## Schema modes
+
+### `off`
+
+No response schema validation is performed.
+
+### `warn`
+
+Schema violations are reported but do not fail the step.
+
+### `strict`
+
+Schema violations are reported and fail the step.
+
+## Violation types
+
+| Kind | Meaning |
+| --- | --- |
+| `status_undeclared` | The API returned a status code the spec does not declare for that operation |
+| `content_type_mismatch` | The response `Content-Type` is not among those the spec declares |
+| `required_field_missing` | A field the schema marks `required` is absent |
+| `schema_mismatch` | Any other schema failure such as wrong type, failed enum, pattern, min/max |
+
+`warn` and `strict` report identical violations. Only the resulting step status differs.
+
+## Undeclared response fields
+
+Fields present in the response but absent from the schema are reported separately as `undeclared_fields`.
+
+They are informational and never fail a run.
+
+This usually means the API has evolved ahead of its OpenAPI specification.
+
+## Schema implementation
+
+Schema validation uses `kin-openapi`'s JSON Schema validator.
+
+Composed schemas such as `allOf`, `oneOf`, and `anyOf` use the behavior provided natively by `kin-openapi`.
+
+---
+
+# Inline Scenarios
+
+A scenario can be passed as a YAML string instead of a file.
+
+This is useful for generated or one-off checks, including AI coding agent workflows.
+
+```bash
+kaktoos run \
+  --openapi openapi.yml \
+  --env env.yml \
+  --schema-mode strict \
+  --scenario-inline '
+name: smoke
+steps:
+  - name: get user
+    operation: getUser
+    request:
+      path:
+        id: "123"
+    assert:
+      status: 200
+'
+```
+
+`--scenario-inline` is repeatable and can be combined with `--scenario`.
+
+At least one of `--scenario` or `--scenario-inline` is required.
+
+`kaktoos validate` accepts the same flag.
+
+---
+
+# Using Kaktoos from an AI Coding Agent
+
+Kaktoos works entirely without AI.
+
+MCP is an **optional interface**. The core Kaktoos engine has no dependency on MCP or on any AI provider.
+
+Every CLI command works whether or not an AI coding agent is involved.
+
+```text
+AI coding agent
+      │
+      ▼
+   Kaktoos MCP
+      │
+      ├── Discover API contract
+      ├── Validate scenario
+      ├── Execute workflow
+      └── Read structured result
+               │
+               ▼
+          Fix integration
+               │
+               ▼
+            Verify again
+```
+
+## Start the MCP server
+
+```bash
+kaktoos mcp
+```
+
+Kaktoos exposes three MCP tools over stdio.
+
+| Tool | Purpose |
+| --- | --- |
+| `list_operations` | List the operations declared by an OpenAPI specification |
+| `validate_scenario` | Validate a scenario before execution |
+| `run_workflow` | Execute a scenario against a real API and return structured results |
+
+### `list_operations`
+
+Lists operations declared by the OpenAPI specification, including:
+
+- HTTP method
+- Path
+- Operation ID
+- Parameters
+- Declared response codes
+
+An optional substring filter can narrow the results.
+
+### `validate_scenario`
+
+Validates a scenario without making network calls.
+
+When an OpenAPI specification is provided, Kaktoos also checks that referenced operations exist.
+
+### `run_workflow`
+
+Executes a scenario against a real API.
+
+Results include per-step outcomes and distinguish between:
+
+- HTTP failures
+- Assertion failures
+- Schema violations
+- Different schema violation kinds
+
+`run_workflow` defaults to:
+
+```text
+schema_mode = strict
+```
+
+This makes contract enforcement the default for agent-driven verification.
+
+The CLI itself continues to default to:
+
+```text
+schema_mode = off
+```
+
+for backward compatibility.
+
+---
+
+# Typical AI Agent Workflow
+
+A typical agent loop looks like this:
+
+```text
+1. list_operations
+        ↓
+2. Discover the real API contract
+        ↓
+3. Build a scenario inline
+        ↓
+4. validate_scenario
+        ↓
+5. run_workflow
+        ↓
+6. Read structured failure
+        ↓
+7. Fix integration code
+        ↓
+8. run_workflow again
+        ↓
+9. PASS
+```
+
+For example, if an API returns:
+
+```json
+{
+  "id": "123",
+  "amount": 100
+}
+```
+
+while the OpenAPI contract requires:
+
+```yaml
+required:
+  - id
+  - total
+```
+
+Kaktoos can report:
+
+```text
+required_field_missing
+$.total
+```
+
+The agent can then use that information to investigate and fix the integration.
+
+---
+
+# MCP Client Configuration
+
+A compatible MCP client can start Kaktoos using:
+
+```json
+{
+  "mcpServers": {
+    "kaktoos": {
+      "command": "kaktoos",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+The exact configuration location depends on the AI coding agent or MCP client being used.
+
+---
+
+# GitHub Action
+
+Kaktoos provides a composite GitHub Action for running API verification in CI.
+
+```yaml
+- uses: kaktooslabs/kaktoos@v1
+  with:
+    openapi: openapi.yml
+    env: environments/ci.yml
+    scenario: scenarios/smoke.yml
+    schema-mode: strict
+```
+
+## Inputs
+
+| Input | Default | Description |
+| --- | --- | --- |
+| `openapi` | *required* | Path to the OpenAPI specification |
+| `env` | *required* | Path to the environment file |
+| `scenario` | `""` | Scenario path(s), space-separated |
+| `schema-mode` | `warn` | `off`, `warn`, or `strict` |
+| `version` | action ref | Kaktoos release to install |
+| `comment` | `true` | Post/update a PR comment with the result |
+
+The action:
+
+1. Installs the requested Kaktoos release
+2. Runs Kaktoos
+3. Writes a per-step result table to the GitHub Actions job summary
+4. Propagates Kaktoos's exit code
+5. Maintains a single PR comment instead of creating a new comment on every run
+
+## Fork Pull Requests
+
+Fork pull requests receive verification, but do not receive a Kaktoos PR comment.
+
+Kaktoos deliberately does not use `pull_request_target` for commenting because that can execute with repository secrets in scope against code originating from an untrusted fork.
+
+The verification itself can still run on fork pull requests.
+
+No secrets are read or echoed by the Kaktoos action.
+
+The comment step uses only the ambient `GITHUB_TOKEN`.
+
+---
+
+# CI/CD
+
+Kaktoos can run directly as a CLI in CI/CD pipelines.
 
 Example GitHub Actions workflow:
 
@@ -358,7 +768,7 @@ jobs:
 
 A failed scenario returns a non-zero exit code, allowing the CI pipeline to fail.
 
-### Exit codes
+## Exit codes
 
 ```text
 0 = all scenarios passed
@@ -367,33 +777,132 @@ A failed scenario returns a non-zero exit code, allowing the CI pipeline to fail
 3 = unexpected error
 ```
 
-## Commands
+---
 
-### Validate
+# Workflow Automation
 
-Validate the OpenAPI specification, environment, and scenario:
+## Filtering by Tag
 
-```bash
-kaktoos validate
-```
+Scenarios may declare `tags:`.
 
-### Run
-
-Execute API test scenarios:
+Filter which scenarios run:
 
 ```bash
-kaktoos run
+kaktoos run \
+  --openapi openapi.yml \
+  --env env.yml \
+  --scenario tests/*.yml \
+  --tag smoke \
+  --exclude-tag slow
 ```
 
-### Version
+`--tag` and `--exclude-tag` are repeatable.
 
-Display the installed Kaktoos version:
+Inclusion is applied first, then exclusion.
+
+Scenarios with no tags are matched by neither flag.
+
+If no scenario matches, Kaktoos exits `2`.
+
+---
+
+# Machine-Readable Output
+
+Kaktoos supports machine-readable output for CI and automation.
 
 ```bash
-kaktoos version
+kaktoos run ... --output-format json
 ```
 
-## Project Structure
+or:
+
+```bash
+kaktoos run ... --output-format junit
+```
+
+The default output format is human-readable text.
+
+JUnit behavior:
+
+- Failed assertions are reported as `<failure>`
+- Conditions evaluating to false are reported as `<failure>`
+- Infrastructure problems such as network, timeout, variable, or template errors are reported as `<error>`
+
+---
+
+# Execution Traces
+
+Kaktoos can produce execution traces:
+
+```bash
+kaktoos run ... --trace --trace-format json
+```
+
+Traces are written to stderr, so they do not mix with machine-readable output written to stdout.
+
+Sensitive headers are redacted unless:
+
+```bash
+--trace-sensitive
+```
+
+is explicitly passed.
+
+---
+
+# Webhooks
+
+Kaktoos can run workflows in response to incoming webhooks.
+
+```bash
+kaktoos serve \
+  --config webhooks.yml \
+  --port 8080 \
+  --host 0.0.0.0
+```
+
+Example configuration:
+
+```yaml
+server:
+  port: 8080
+  host: 0.0.0.0
+
+routes:
+  - path: /hooks/orders/{id}
+    method: POST
+
+    auth:
+      type: hmac_sha256
+      # or bearer_token, basic
+      secret: your-shared-secret
+      header: X-Hub-Signature-256
+
+    workflow:
+      openapi: openapi.yml
+      environment: env.yml
+      scenario: workflows/order-check.yml
+
+    variable_mapping:
+      orderId: path.id
+      customer: body.customer.name
+```
+
+Requests are authenticated before the workflow runs.
+
+Request bodies are capped at 10 MB.
+
+`path.*` and `body.*` values become workflow variables.
+
+Environment variables take precedence over webhook variables when names collide.
+
+The webhook response is HTTP `200` whether the workflow passes or fails. The response body contains the workflow result.
+
+HTTP `500` is reserved for infrastructure failures.
+
+---
+
+# Project Structure
 
 A typical Kaktoos test repository:
 
@@ -437,11 +946,77 @@ Kaktoos run
 Regression result
 ```
 
-## Examples
+---
+
+# Commands
+
+## Validate
+
+Validate the OpenAPI specification, environment, and scenario:
+
+```bash
+kaktoos validate
+```
+
+Inline scenarios can also be used:
+
+```bash
+kaktoos validate \
+  --openapi openapi.yml \
+  --env env.yml \
+  --scenario-inline '...'
+```
+
+## Run
+
+Execute API test scenarios:
+
+```bash
+kaktoos run
+```
+
+Enable response schema validation:
+
+```bash
+kaktoos run --schema-mode strict
+```
+
+## MCP
+
+Expose Kaktoos to an AI coding agent:
+
+```bash
+kaktoos mcp
+```
+
+## Serve
+
+Run workflows in response to incoming webhooks:
+
+```bash
+kaktoos serve \
+  --config webhooks.yml \
+  --port 8080 \
+  --host 0.0.0.0
+```
+
+## Version
+
+Display the installed Kaktoos version:
+
+```bash
+kaktoos version
+```
+
+---
+
+# Examples
 
 See the [`examples/`](examples/) directory for complete working examples.
 
-## Development
+---
+
+# Development
 
 Run unit tests:
 
@@ -461,29 +1036,61 @@ Build:
 go build ./cmd/kaktoos
 ```
 
-## Project Status
+Run static analysis:
+
+```bash
+go vet ./...
+```
+
+Format the source:
+
+```bash
+gofmt -w .
+```
+
+---
+
+# Project Status
 
 **Kaktoos v1.0.0 — Initial Public Release**
 
-Kaktoos is currently focused on scenario-based API regression testing using OpenAPI and Git.
+Kaktoos currently focuses on:
+
+- Scenario-based API verification
+- OpenAPI-powered API execution
+- Multi-step API workflows
+- Response schema validation
+- Git-native API testing
+- AI coding agent integration through MCP
+- CI/CD verification through GitHub Actions
+
+The core engine works independently of AI and external services.
 
 The next improvements will be driven by real-world usage and feedback.
 
-If you use Kaktoos, we'd love to hear:
+If you use Kaktoos, we'd especially like to learn:
 
 - What API workflows are you testing?
-- What do you currently use for API regression testing?
+- Are you using Kaktoos manually, in CI, or through an AI coding agent?
+- What problems did Kaktoos catch?
+- What did your existing API testing workflow miss?
+- Did the MCP workflow make AI-generated API integrations easier to verify?
+- What are you currently using for API regression testing?
 - What is difficult about your current approach?
 - What would make Kaktoos more useful?
 
 Open an issue or discussion on GitHub.
 
-## Contributing
+---
+
+# Contributing
 
 Contributions, bug reports, and ideas are welcome.
 
 Please open an issue or pull request on GitHub.
 
-## License
+---
+
+# License
 
 MIT License

@@ -3,8 +3,11 @@ package scenario
 
 // Scenario holds the entire sequence of steps to execute.
 type Scenario struct {
-	Name  string
-	Steps []Step
+	Name            string   `yaml:"name"`
+	Tags            []string `yaml:"tags,omitempty"`
+	WorkflowTimeout string   `yaml:"workflow_timeout,omitempty"`
+	IdempotencyKey  string   `yaml:"idempotency_key,omitempty"`
+	Steps           []Step   `yaml:"steps"`
 	// Optional fields like tags, etc., can be added here.
 }
 
@@ -20,7 +23,22 @@ type Step struct {
 	// Extract specifies how values from the response body (raw bytes) should be extracted into context variables.
 	Extract map[string]string `yaml:"extract,omitempty"`
 	// Assert defines the assertions run against the response body and status code.
-	Assert *AssertSpec `yaml:"assert,omitempty"`
+	Assert  *AssertSpec  `yaml:"assert,omitempty"`
+	Timeout string       `yaml:"timeout,omitempty"`
+	Retry   *RetryPolicy `yaml:"retry,omitempty"`
+}
+
+type RetryPolicy struct {
+	Strategy          string          `yaml:"strategy"`
+	MaxAttempts       int             `yaml:"max_attempts"`
+	InitialDelay      string          `yaml:"initial_delay"`
+	MaxDelay          string          `yaml:"max_delay,omitempty"`
+	BackoffMultiplier float64         `yaml:"backoff_multiplier,omitempty"`
+	RetryOn           RetryConditions `yaml:"retry_on"`
+}
+type RetryConditions struct {
+	StatusCodes   []int `yaml:"status_codes,omitempty"`
+	NetworkErrors bool  `yaml:"network_errors,omitempty"`
 }
 
 // RequestSpec holds the parameters used to build the HTTP request.

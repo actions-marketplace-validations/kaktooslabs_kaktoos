@@ -1,0 +1,161 @@
+name: Kaktoos
+description: Verify API integrations against an OpenAPI contract and real API behavior.
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  version:
+    description: Kaktoos release version to install (e.g. v1.2.3). Defaults to the action's own ref.
+    required: false
+    default: ""
+  openapi:
+    description: Path to the OpenAPI spec.
+    required: true
+  env:
+    description: Path to the environment file.
+    required: true
+  scenario:
+    description: Path(s) to scenario file(s), space-separated.
+    required: false
+    default: ""
+  schema-mode:
+    description: off, warn or strict.
+    required: false
+    default: "warn"
+  comment:
+    description: Post/update a PR comment with the result (same-repo PRs only).
+    required: false
+    default: "true"
+
+outputs:
+  passed:
+    description: "true or false"
+    value: ${{ steps.run.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install kaktoos
+      shell: bash
+      run: |
+        set -euo pipefail
+        ver="${{ inputs.version }}"
+        if [ -z "$ver" ]; then ver="${{ github.action_ref }}"; fi
+
+        os="$(uname -s)"
+        arch="$(uname -m)"
+        case "$arch" in
+          x86_64|amd64) arch="x86_64" ;;
+          arm64|aarch64) arch="arm64" ;;
+          *) echo "unsupported arch: $arch" >&2; exit 1 ;;
+        esac
+        case "$os" in
+          Linux) os="Linux"; ext="tar.gz" ;;
+          Darwin) os="Darwin"; ext="tar.gz" ;;
+          *) echo "unsupported OS: $os" >&2; exit 1 ;;
+        esac
+
+        asset="kaktoos_${os}_${arch}.${ext}"
+        # KAKTOOS_ACTION_RELEASE_BASE_URL exists so this repo's own CI can
+        # dogfood the action against a locally built binary. Leave it unset.
+        if [ -n "${KAKTOOS_ACTION_RELEASE_BASE_URL:-}" ]; then
+          url="${KAKTOOS_ACTION_RELEASE_BASE_URL}/${asset}"
+        else
+          url="https://github.com/kaktooslabs/kaktoos/releases/download/${ver}/${asset}"
+        fi
+        curl -fsSL "$url" -o /tmp/kaktoos.tar.gz
+        tar -xzf /tmp/kaktoos.tar.gz -C /tmp kaktoos
+        chmod +x /tmp/kaktoos
+        echo "/tmp" >> "$GITHUB_PATH"
+
+    - name: Run kaktoos
+      id: run
+      shell: bash
+      run: |
+        set -uo pipefail
+        args=(run --openapi "${{ inputs.openapi }}" --env "${{ inputs.env }}" \
+          --schema-mode "${{ inputs.schema-mode }}" --output-format json)
+        for s in ${{ inputs.scenario }}; do args+=(--scenario "$s"); done
+
+        kaktoos "${args[@]}" > /tmp/kaktoos-result.json
+        status=$?
+
+        # The exit code is the authority on pass/fail; the JSON carries detail.
+        passed=false
+        if [ "$status" -eq 0 ]; then passed=true; fi
+        echo "passed=$passed" >> "$GITHUB_OUTPUT"
+
+        {
+          echo "## Kaktoos"
+          echo
+          if [ "$passed" = "true" ]; then
+            echo "✅ All scenarios passed."
+          else
+            echo "❌ Verification failed (exit code $status)."
+          fi
+          echo
+          jq -r '"| Workflow | Step | Status | Detail |",
+                 "| --- | --- | --- | --- |",
+                 (.executions[] as $e | $e.steps[]
+                   | "| \($e.workflow) | \(.name) | \(.status) | \(
+                       ((.schema_violations // []) | map("\(.kind) \(.path): \(.message)"))
+                       + ((.assertion_failures // []) | map("\(.type) \(.path // ""): \(.error // "")"))
+                       + (if .error then [.error] else [] end)
+                       | join("<br>")
+                     ) |"
+                 )' /tmp/kaktoos-result.json 2>/dev/null || {
+            echo '```json'
+            cat /tmp/kaktoos-result.json
+            echo '```'
+          }
+          echo
+
+          undeclared=$(jq -r '[.executions[].steps[].undeclared_fields // []] | add // [] | unique | join(", ")' \
+            /tmp/kaktoos-result.json 2>/dev/null || true)
+          if [ -n "$undeclared" ]; then
+            echo "> Undeclared response fields (informational, never fails): $undeclared"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        exit $status
+
+    - name: Comment on PR
+      if: always() && inputs.comment == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        marker="<!-- kaktoos-report -->"
+        passed="${{ steps.run.outputs.passed }}"
+        icon="❌"
+        if [ "$passed" = "true" ]; then icon="✅"; fi
+
+        body_file=$(mktemp)
+        {
+          echo "$marker"
+          echo "### $icon Kaktoos"
+          echo
+          jq -r '.summary | "\(.passed)/\(.total) scenarios passed in \(.duration)."' \
+            /tmp/kaktoos-result.json 2>/dev/null || true
+          echo
+          jq -r '.executions[] as $e | $e.steps[]
+                 | select(.status != "PASSED")
+                 | "- **\($e.workflow) → \(.name)**: " + (
+                     ((.schema_violations // []) | map("`\(.kind)` \(.path): \(.message)"))
+                     + ((.assertion_failures // []) | map("assertion \(.path // ""): \(.error // "")"))
+                     + (if .error then [.error] else [] end)
+                     | join("; ")
+                   )' /tmp/kaktoos-result.json 2>/dev/null || true
+        } > "$body_file"
+
+        existing=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n1)
+
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$existing" -f body=@"$body_file"
+        else
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file "$body_file" \
+            --repo "${{ github.repository }}"
+        fi

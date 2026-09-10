@@ -1,0 +1,86 @@
+name: Test Action
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Stage a locally built binary as a release asset
+        run: |
+          set -euo pipefail
+          go build -o kaktoos ./cmd/kaktoos
+          mkdir -p /tmp/release
+          tar -czf /tmp/release/kaktoos_Linux_x86_64.tar.gz kaktoos
+          cd /tmp/release && python3 -m http.server 8931 &
+          sleep 1
+
+      - name: Start the stub API the example scenario targets
+        run: |
+          cat > /tmp/stub.py <<'PY'
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+
+          class H(BaseHTTPRequestHandler):
+              def _send(self, code, body):
+                  self.send_response(code)
+                  self.send_header("Content-Type", "application/json")
+                  self.end_headers()
+                  self.wfile.write(body.encode())
+
+              def do_POST(self):
+                  self._send(201, '{"id":"123","name":"Test User"}')
+
+              def do_GET(self):
+                  self._send(200, '{"id":"123","name":"Test User"}')
+
+              def log_message(self, *a):
+                  pass
+
+          HTTPServer(("127.0.0.1", 8080), H).serve_forever()
+          PY
+          python3 /tmp/stub.py &
+          sleep 1
+
+      - name: Run kaktoos via the composite action
+        id: kaktoos
+        uses: ./
+        with:
+          openapi: examples/openapi.yml
+          env: examples/environments/local.yml
+          scenario: examples/scenarios/test.yml
+          schema-mode: warn
+          comment: "false"
+        env:
+          KAKTOOS_ACTION_RELEASE_BASE_URL: http://localhost:8931
+
+      - name: Assert the action reported success
+        run: |
+          if [ "${{ steps.kaktoos.outputs.passed }}" != "true" ]; then
+            echo "expected passed=true, got '${{ steps.kaktoos.outputs.passed }}'" >&2
+            exit 1
+          fi
+
+      - name: Assert a failing run propagates a non-zero exit code
+        run: |
+          set -uo pipefail
+          # No API on this port: the run must fail rather than report success.
+          sed 's|:8080|:9999|' examples/environments/local.yml > /tmp/broken-env.yml
+          kaktoos run --openapi examples/openapi.yml --env /tmp/broken-env.yml \
+            --scenario examples/scenarios/test.yml --output-format json > /dev/null
+          status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "expected a non-zero exit code for an unreachable API" >&2
+            exit 1
+          fi

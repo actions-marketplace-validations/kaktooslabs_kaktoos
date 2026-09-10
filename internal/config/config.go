@@ -11,9 +11,14 @@ import (
 
 // Environment holds the runtime configuration for a single environment.
 type Environment struct {
-	BaseURL   string            `yaml:"base_url"`
-	Headers   map[string]string `yaml:"headers"`
-	Variables map[string]string `yaml:"variables"`
+	BaseURL    string                    `yaml:"base_url"`
+	Headers    map[string]string         `yaml:"headers"`
+	Variables  map[string]string         `yaml:"variables"`
+	RateLimits map[string]RateLimitEntry `yaml:"rate_limits,omitempty"`
+}
+type RateLimitEntry struct {
+	RequestsPerSecond *int `yaml:"requests_per_second,omitempty"`
+	RequestsPerMinute *int `yaml:"requests_per_minute,omitempty"`
 }
 
 // ConfigError wraps an error that occurs during configuration loading,
@@ -26,7 +31,7 @@ func (e *ConfigError) Error() string {
 	return fmt.Sprintf("config: %s", e.Message)
 }
 
-// Load parses an environment YAML file and validates required fields.
+// Load reads an environment YAML file and parses it via LoadBytes.
 // Returns a ConfigError on any failure.
 func Load(path string) (Environment, error) {
 	data, err := os.ReadFile(path)
@@ -40,11 +45,16 @@ func Load(path string) (Environment, error) {
 			Message: fmt.Sprintf("cannot read file %s: %v", path, err),
 		}
 	}
+	return LoadBytes(data)
+}
 
+// LoadBytes parses environment YAML from memory and validates required
+// fields. Used by Load, and directly by callers with inline YAML (e.g. MCP).
+func LoadBytes(data []byte) (Environment, error) {
 	var env Environment
 	if err := yaml.Unmarshal(data, &env); err != nil {
 		return Environment{}, &ConfigError{
-			Message: fmt.Sprintf("file %s cannot be parsed as valid YAML: %s", path, err.Error()),
+			Message: fmt.Sprintf("cannot be parsed as valid YAML: %s", err.Error()),
 		}
 	}
 
@@ -80,6 +90,17 @@ func Load(path string) (Environment, error) {
 	}
 	if env.Variables == nil {
 		env.Variables = make(map[string]string)
+	}
+	for key, limit := range env.RateLimits {
+		if limit.RequestsPerSecond != nil && limit.RequestsPerMinute != nil {
+			return Environment{}, &ConfigError{Message: fmt.Sprintf("rate_limits.%s: cannot specify both requests_per_second and requests_per_minute", key)}
+		}
+		if limit.RequestsPerSecond == nil && limit.RequestsPerMinute == nil {
+			return Environment{}, &ConfigError{Message: fmt.Sprintf("rate_limits.%s: must specify either requests_per_second or requests_per_minute", key)}
+		}
+		if (limit.RequestsPerSecond != nil && *limit.RequestsPerSecond <= 0) || (limit.RequestsPerMinute != nil && *limit.RequestsPerMinute <= 0) {
+			return Environment{}, &ConfigError{Message: fmt.Sprintf("rate_limits.%s: rate limit value must be greater than zero", key)}
+		}
 	}
 
 	return env, nil

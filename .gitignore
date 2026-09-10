@@ -1,6 +1,8 @@
-# Binaries
-kaktoos
-kaktoos-test
+# Binaries (anchored and non-directory: a bare "kaktoos" also matched the
+# cmd/kaktoos/ source directory and silently ignored everything in it)
+/kaktoos
+/kaktoos-test
+/kaktoos-mcp-test
 *.exe
 *.exe~
 *.dll
