@@ -1052,7 +1052,7 @@ gofmt -w .
 
 # Project Status
 
-**Kaktoos v1.0.0 — Initial Public Release**
+**Kaktoos v1.1.0**
 
 Kaktoos currently focuses on:
 
