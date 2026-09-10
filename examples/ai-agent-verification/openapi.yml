@@ -1,0 +1,44 @@
+openapi: 3.0.3
+
+info:
+  title: Orders API
+  version: 1.0.0
+  description: >-
+    The contract. Whatever the implementation does, this document is what
+    consumers of the Orders API are entitled to rely on.
+
+servers:
+  - url: http://localhost:8090
+
+paths:
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      summary: Retrieve a single order
+      tags: [orders]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - total
+                  - currency
+                properties:
+                  id:
+                    type: string
+                  total:
+                    type: number
+                    description: Order total. The contract calls this `total`.
+                  currency:
+                    type: string
+                    enum: [USD, EUR]

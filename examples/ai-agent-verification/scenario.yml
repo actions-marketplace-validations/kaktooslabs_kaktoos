@@ -1,0 +1,15 @@
+name: Order lookup
+
+# Note how little this file asserts. It says "fetch order 123 and expect a
+# 200" — nothing about `total`. The contract already declares that field as
+# required, so Kaktoos checks it under --schema-mode strict without anyone
+# restating it here. That is what makes the verification independent of
+# whoever wrote the integration.
+steps:
+  - name: Get order
+    operation: getOrder
+    request:
+      path:
+        orderId: "123"
+    assert:
+      status: 200

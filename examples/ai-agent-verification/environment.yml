@@ -1,0 +1,6 @@
+name: demo
+
+base_url: http://localhost:8090
+
+headers:
+  Content-Type: application/json
