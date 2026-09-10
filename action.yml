@@ -1,4 +1,4 @@
-name: Kaktoos
+name: Kaktoos API Verification
 description: Verify API integrations against an OpenAPI contract and real API behavior.
 branding:
   icon: check-circle
