@@ -42,6 +42,53 @@ Kaktoos works entirely without AI. AI coding agents are an optional interface th
 
 ---
 
+# Contents
+
+**Start here**
+
+- [Why Kaktoos?](#why-kaktoos)
+- [Key Capabilities](#key-capabilities)
+- [How It Works](#how-it-works)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Example](#example)
+
+**Writing scenarios**
+
+- [Configuration](#configuration)
+- [Assertions](#assertions)
+- [Response Schema Validation](#response-schema-validation)
+- [Inline Scenarios](#inline-scenarios)
+- [Scenario file reference](docs/scenario-reference.md) — every field
+- [Verification patterns](docs/scenarios.md) — contract, read-after-write state, cleanup
+
+**AI coding agents**
+
+- [Using Kaktoos from an AI Coding Agent](#using-kaktoos-from-an-ai-coding-agent)
+- [Typical AI Agent Workflow](#typical-ai-agent-workflow)
+- [MCP Client Configuration](#mcp-client-configuration)
+
+**Automation**
+
+- [GitHub Action](#github-action)
+- [CI/CD](#cicd)
+- [Workflow Automation](#workflow-automation)
+- [Machine-Readable Output](#machine-readable-output)
+- [Execution Traces](#execution-traces)
+- [Webhooks](#webhooks)
+
+**Reference**
+
+- [Project Structure](#project-structure)
+- [Commands](#commands)
+- [Examples](#examples)
+- [Development](#development)
+- [Project Status](#project-status)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Why Kaktoos?
 
 Testing an individual API endpoint is easy.
@@ -1128,6 +1175,8 @@ Kaktoos currently focuses on:
 - OpenAPI-powered API execution
 - Multi-step API workflows
 - Response schema validation
+- Read-after-write state verification with `always_run` cleanup
+- Deterministic failure classification with redacted evidence, shared across CLI, JSON, JUnit, MCP, and the GitHub Action
 - Git-native API testing
 - AI coding agent integration through MCP
 - CI/CD verification through GitHub Actions
