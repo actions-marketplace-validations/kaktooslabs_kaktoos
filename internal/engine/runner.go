@@ -18,6 +18,7 @@ import (
 	"github.com/kaktooslabs/kaktoos/internal/schema"
 	"github.com/kaktooslabs/kaktoos/internal/template"
 	"github.com/kaktooslabs/kaktoos/internal/variable"
+	"github.com/kaktooslabs/kaktoos/internal/verification"
 )
 
 // resolve applies the template function pre-pass (template.Resolve) before
@@ -88,8 +89,10 @@ func RunScenario(ctx ExecutionContext, s scenario.Scenario, client *http.Client)
 	stepFailed := false
 
 	for _, step := range s.Steps {
-		// Rule 6: If previous step failed, skip all remaining steps
-		if stepFailed {
+		// Rule 6: If previous step failed, skip all remaining steps — except
+		// always_run steps (cleanup), which execute but can never flip the
+		// scenario back to passed.
+		if stepFailed && !step.AlwaysRun {
 			stepResult := StepResult{
 				Name:   step.Name,
 				Status: StepSkipped,
@@ -138,6 +141,7 @@ func executeConditionStep(ctx ExecutionContext, step scenario.Step) StepResult {
 	if len(f) < 2 || len(f) > 3 {
 		r.Status = StepFailed
 		r.Error = "condition error: invalid syntax"
+		r.FailureCategory = verification.CategoryConfigError
 		return r
 	}
 	op := f[1]
@@ -145,6 +149,7 @@ func executeConditionStep(ctx ExecutionContext, step scenario.Step) StepResult {
 	if unary != (len(f) == 2) {
 		r.Status = StepFailed
 		r.Error = "condition error: invalid syntax"
+		r.FailureCategory = verification.CategoryConfigError
 		return r
 	}
 	resolve := func(x string) (string, bool) {
@@ -167,11 +172,13 @@ func executeConditionStep(ctx ExecutionContext, step scenario.Step) StepResult {
 		if !ok {
 			r.Status = StepFailed
 			r.Error = "condition evaluated to false: " + step.Condition
+			r.FailureCategory = verification.CategoryAssertionFailed
 		}
 		return r
 	}
 	if !found {
 		r.Status = StepFailed
+		r.FailureCategory = verification.CategoryConfigError
 		r.Error = fmt.Sprintf("condition error: variable '%s' not found", strings.TrimPrefix(strings.TrimPrefix(f[0], "$."), "$"))
 		return r
 	}
@@ -187,6 +194,7 @@ func executeConditionStep(ctx ExecutionContext, step scenario.Step) StepResult {
 		b, e2 := strconv.ParseFloat(rhs, 64)
 		if e != nil || e2 != nil {
 			r.Status = StepFailed
+			r.FailureCategory = verification.CategoryConfigError
 			r.Error = "condition error: operand is not numeric"
 			return r
 		}
@@ -201,12 +209,14 @@ func executeConditionStep(ctx ExecutionContext, step scenario.Step) StepResult {
 		}
 	default:
 		r.Status = StepFailed
+		r.FailureCategory = verification.CategoryConfigError
 		r.Error = "condition error: invalid operator"
 		return r
 	}
 	if !ok {
 		r.Status = StepFailed
 		r.Error = "condition evaluated to false: " + step.Condition
+		r.FailureCategory = verification.CategoryAssertionFailed
 	}
 	return r
 }
@@ -255,7 +265,14 @@ func executeStep(ctx ExecutionContext, step scenario.Step, client *http.Client, 
 	return final
 }
 func timeoutResult(s scenario.Step, a []AttemptResult, e error) StepResult {
-	return StepResult{Name: s.Name, StepType: "http", Status: StepTimedOut, Error: "engine: step timed out: " + e.Error(), Attempts: a, StartedAt: time.Now(), FinishedAt: time.Now()}
+	r := StepResult{Name: s.Name, StepType: "http", Status: StepTimedOut, Error: "engine: step timed out: " + e.Error(), Attempts: a, StartedAt: time.Now(), FinishedAt: time.Now(), FailureCategory: verification.CategoryTimeout}
+	// Carry the last attempt's evidence forward: the request that ran out of
+	// time is the one worth showing.
+	if n := len(a); n > 0 && a[n-1].HTTPURL != "" {
+		r.Evidence = verification.NewEvidence(a[n-1].HTTPMethod, a[n-1].HTTPURL, a[n-1].StatusCode,
+			a[n-1].RequestHeaders, a[n-1].RequestBody, a[n-1].ResponseHeaders, a[n-1].ResponseBody)
+	}
+	return r
 }
 func retryable(p *scenario.RetryPolicy, a AttemptResult) bool {
 	if p == nil {
@@ -312,6 +329,11 @@ func executeSingleStep(ctx ExecutionContext, step scenario.Step, client *http.Cl
 	var tracedReqBody string
 	var tracedRespHeaders http.Header
 	var tracedRespBody string
+	// transportErr is set only when no usable HTTP response was obtained.
+	var transportErr error
+	// extractErr marks a post-response scenario error (bad JSONPath) so it is
+	// not misreported as an API assertion failure.
+	var extractErr bool
 	defer func() {
 		stepResult.StartedAt = startedAt
 		stepResult.FinishedAt = time.Now()
@@ -321,6 +343,41 @@ func executeSingleStep(ctx ExecutionContext, step scenario.Step, client *http.Cl
 			attempt.Status = AttemptPassed
 		} else {
 			attempt.Status = AttemptFailed
+		}
+		if stepResult.Status != StepPassed {
+			hasFailedAssertion := false
+			for _, a := range stepResult.Assertions {
+				if !a.Passed {
+					hasFailedAssertion = true
+					break
+				}
+			}
+			cat := verification.Classify(verification.Input{
+				StatusCode: stepResult.StatusCode,
+				// Only strict-mode violations actually fail a step; in warn mode
+				// they are informational and must not mask the real cause.
+				HasSchemaViolations: ctx.SchemaMode == schema.Strict && len(stepResult.SchemaViolations) > 0,
+				HasFailedAssertion:  hasFailedAssertion,
+				TransportErr:        transportErr,
+				TimedOut:            stepResult.Status == StepTimedOut,
+				// Every pre-request failure (unknown operation, unresolved
+				// variable, bad extract path) returns before a response exists.
+				ConfigErr: (stepResult.StatusCode == 0 && transportErr == nil) || extractErr,
+			})
+			stepResult.FailureCategory = cat
+			attempt.FailureCategory = cat
+			if tracedReq != nil {
+				ev := verification.NewEvidence(
+					tracedReq.Method, tracedReq.URL.String(), stepResult.StatusCode,
+					flattenHeader(tracedReq.Header), tracedReqBody,
+					flattenHeader(tracedRespHeaders), tracedRespBody)
+				stepResult.Evidence = ev
+				// Mirror onto the attempt so a step that is later replaced by a
+				// timeout result (executeStep) can still show what it sent.
+				attempt.HTTPMethod, attempt.HTTPURL = ev.Method, ev.URL
+				attempt.RequestHeaders, attempt.RequestBody = ev.RequestHeaders, ev.RequestBody
+				attempt.ResponseHeaders, attempt.ResponseBody = ev.ResponseHeaders, ev.ResponseBody
+			}
 		}
 		if ctx.TraceEnabled && tracedReq != nil {
 			attempt.HTTPMethod = tracedReq.Method
@@ -427,6 +484,7 @@ func executeSingleStep(ctx ExecutionContext, step scenario.Step, client *http.Cl
 	// 3. Execute the HTTP request
 	resp, err := client.Do(req)
 	if err != nil {
+		transportErr = err
 		stepResult.Status = StepFailed
 		stepResult.Error = fmt.Sprintf("HTTP request failed: %v", err)
 		return stepResult
@@ -439,6 +497,7 @@ func executeSingleStep(ctx ExecutionContext, step scenario.Step, client *http.Cl
 	// 4. Read response body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
+		transportErr = err // headers arrived but the body did not: still a transport problem
 		stepResult.Status = StepFailed
 		stepResult.Error = fmt.Sprintf("failed to read response body: %v", err)
 		return stepResult
@@ -462,6 +521,7 @@ func executeSingleStep(ctx ExecutionContext, step scenario.Step, client *http.Cl
 	if step.Extract != nil && len(step.Extract) > 0 {
 		err := variable.Extract(bodyBytes, step.Extract, ctx.VariableStore, step.Name)
 		if err != nil {
+			extractErr = true
 			stepResult.Status = StepFailed
 			stepResult.Error = fmt.Sprintf("variable extraction failed: %v", err)
 			return stepResult

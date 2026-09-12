@@ -26,6 +26,10 @@ type Step struct {
 	Assert  *AssertSpec  `yaml:"assert,omitempty"`
 	Timeout string       `yaml:"timeout,omitempty"`
 	Retry   *RetryPolicy `yaml:"retry,omitempty"`
+	// AlwaysRun executes this step even after an earlier step failed — for
+	// cleanup (delete what a write step created). Its outcome is recorded but
+	// can never turn a failed scenario back into a passing one.
+	AlwaysRun bool `yaml:"always_run,omitempty"`
 }
 
 type RetryPolicy struct {

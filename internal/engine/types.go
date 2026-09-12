@@ -7,6 +7,7 @@ import (
 	"github.com/kaktooslabs/kaktoos/internal/ratelimit"
 	"github.com/kaktooslabs/kaktoos/internal/schema"
 	"github.com/kaktooslabs/kaktoos/internal/variable"
+	"github.com/kaktooslabs/kaktoos/internal/verification"
 	"time"
 )
 
@@ -48,6 +49,8 @@ type AttemptResult struct {
 	HTTPMethod, HTTPURL             string
 	RequestHeaders, ResponseHeaders map[string]string
 	RequestBody, ResponseBody       string
+	// FailureCategory says why this attempt failed; empty when it passed.
+	FailureCategory verification.Category
 }
 
 // AssertionResult mirrors the Result struct from internal/assertion/types.go.
@@ -75,6 +78,12 @@ type StepResult struct {
 	Attempts              []AttemptResult
 	SchemaViolations      []schema.Violation
 	UndeclaredFields      []string
+	// FailureCategory is the deterministic failure class, computed once by the
+	// engine and consumed verbatim by every reporter. Empty when the step passed.
+	FailureCategory verification.Category
+	// Evidence is the redacted request/response behind a failure; nil when the
+	// step passed or no request was made.
+	Evidence *verification.Evidence
 }
 
 // ExecutionResult holds the summary of a single scenario run.

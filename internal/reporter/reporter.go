@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kaktooslabs/kaktoos/internal/engine"
+	"github.com/kaktooslabs/kaktoos/internal/verification"
 )
 
 // Report formats and writes test results to io.Writer.
@@ -22,6 +23,9 @@ func Report(results []engine.ExecutionResult, w io.Writer) {
 			if step.Status == engine.StepFailed {
 				if step.Error != "" {
 					fmt.Fprintf(w, "    Error: %s\n", step.Error)
+				}
+				if step.FailureCategory != "" {
+					fmt.Fprintf(w, "    Category: %s\n", step.FailureCategory)
 				}
 				for _, assertion := range step.Assertions {
 					if !assertion.Passed {
@@ -98,6 +102,10 @@ type jsonStep struct {
 	AssertionFailures []jsonAssertion       `json:"assertion_failures,omitempty"`
 	SchemaViolations  []jsonSchemaViolation `json:"schema_violations,omitempty"`
 	UndeclaredFields  []string              `json:"undeclared_fields,omitempty"`
+	// FailureCategory is the engine's deterministic failure class; empty when passed.
+	FailureCategory string `json:"failure_category,omitempty"`
+	// Evidence is the redacted request/response behind a failure.
+	Evidence *verification.Evidence `json:"evidence,omitempty"`
 }
 
 type jsonSchemaViolation struct {
@@ -173,6 +181,8 @@ func ReportJSON(results []engine.ExecutionResult, w io.Writer) error {
 				step.SchemaViolations = append(step.SchemaViolations, jsonSchemaViolation{Kind: v.Kind, Path: v.Path, Message: v.Message})
 			}
 			step.UndeclaredFields = s.UndeclaredFields
+			step.FailureCategory = string(s.FailureCategory)
+			step.Evidence = s.Evidence
 			exec.Steps = append(exec.Steps, step)
 		}
 		report.Executions = append(report.Executions, exec)
@@ -278,8 +288,18 @@ func failureText(s engine.StepResult) string {
 }
 
 // isAssertionFailure reports whether a non-passing step failed due to a failed
-// assertion or a false condition, rather than an infrastructure error.
+// assertion or a false condition, rather than an infrastructure error. It
+// reads the engine's FailureCategory when present; the string heuristics below
+// only cover legacy results without one (e.g. rebuilt from idempotency records).
 func isAssertionFailure(s engine.StepResult) bool {
+	switch s.FailureCategory {
+	case verification.CategoryAssertionFailed, verification.CategoryContractMismatch:
+		return true
+	case "":
+		// fall through to legacy heuristics
+	default:
+		return false
+	}
 	if s.StepType == "condition" {
 		return true
 	}

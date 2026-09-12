@@ -29,7 +29,7 @@ func Load(data []byte) (*Scenario, error) {
 	stepsRaw, ok := raw["steps"].([]interface{})
 	if ok {
 		// Updated: Step must now reference assertion.Spec
-		stepAllowedFields := map[string]bool{"name": true, "operation": true, "request": true, "extract": true, "assert": true, "condition": true, "timeout": true, "retry": true}
+		stepAllowedFields := map[string]bool{"name": true, "operation": true, "request": true, "extract": true, "assert": true, "condition": true, "timeout": true, "retry": true, "always_run": true}
 		for i, stepRaw := range stepsRaw {
 			m, ok := stepRaw.(map[string]interface{})
 			if !ok {
@@ -72,6 +72,9 @@ func Load(data []byte) (*Scenario, error) {
 		}
 		if step.Condition != "" && step.Retry != nil {
 			errs = append(errs, prefix+" condition steps cannot have a retry policy")
+		}
+		if step.Condition != "" && step.AlwaysRun {
+			errs = append(errs, prefix+" always_run is only valid on operation steps")
 		}
 		if step.Timeout != "" {
 			if _, err := time.ParseDuration(step.Timeout); err != nil {

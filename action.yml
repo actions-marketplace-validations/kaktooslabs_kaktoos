@@ -95,10 +95,10 @@ runs:
             echo "❌ Verification failed (exit code $status)."
           fi
           echo
-          jq -r '"| Workflow | Step | Status | Detail |",
-                 "| --- | --- | --- | --- |",
+          jq -r '"| Workflow | Step | Status | Category | Detail |",
+                 "| --- | --- | --- | --- | --- |",
                  (.executions[] as $e | $e.steps[]
-                   | "| \($e.workflow) | \(.name) | \(.status) | \(
+                   | "| \($e.workflow) | \(.name) | \(.status) | \(.failure_category // "") | \(
                        ((.schema_violations // []) | map("\(.kind) \(.path): \(.message)"))
                        + ((.assertion_failures // []) | map("\(.type) \(.path // ""): \(.error // "")"))
                        + (if .error then [.error] else [] end)

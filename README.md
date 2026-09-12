@@ -106,6 +106,52 @@ This can catch:
 - Failed enum/pattern constraints
 - Other schema violations
 
+### State verification, not just responses
+
+A `200` proves the API answered. It does not prove anything was stored.
+
+Kaktoos verifies observable state with steps you already know how to write —
+write, extract the id, read it back, assert on what came back, then clean up:
+
+```text
+POST /orders  → 200 {"id":"o-1"}     ← the API says it worked
+     │ $.id
+     ▼
+GET /orders/o-1 → 404                ← the state says otherwise
+     │
+     ▼
+FAILED: assertion_failed
+```
+
+Cleanup steps marked `always_run: true` still execute after a failure, so test
+data is removed even when the verification in the middle failed.
+
+See [docs/scenarios.md](docs/scenarios.md).
+
+### Deterministic failure classification
+
+Every failed step carries one machine-readable `failure_category`, computed
+once by the engine and identical in the CLI, JSON, JUnit, MCP, and the GitHub
+Action — no consumer parses error text:
+
+| Category | Meaning |
+| --- | --- |
+| `contract_mismatch` | Response violated the OpenAPI schema (strict mode) |
+| `assertion_failed` | A scenario `assert` or `condition` failed |
+| `auth_failure` | HTTP 401 or 403 |
+| `rate_limited` | HTTP 429 |
+| `server_error` | HTTP 5xx |
+| `transport_failure` | No usable response (connection refused, DNS) |
+| `timeout` | Step or workflow deadline exceeded |
+| `config_error` | Unknown operation, unresolved variable, bad JSONPath |
+
+A 401 that also fails `assert: {status: 200}` reports as `auth_failure` — the
+cause, not the symptom.
+
+Each failure also carries structured evidence: method, URL, status, request and
+response headers and bodies, with `Authorization`, `Cookie`, `X-Api-Key` and
+friends redacted to `***`.
+
 ### AI coding agent integration
 
 Kaktoos exposes an MCP server that allows AI coding agents to:
@@ -172,6 +218,7 @@ environment.yml
      ├── Substitute variables
      ├── Validate response schemas
      ├── Evaluate assertions
+     ├── Classify failures + capture redacted evidence
      └── Report results
 ```
 
@@ -322,7 +369,10 @@ headers:
 
 ## Scenario
 
-Scenarios describe multi-step API workflows.
+Scenarios describe multi-step API workflows. See
+[docs/scenario-reference.md](docs/scenario-reference.md) for every field, and
+[docs/scenarios.md](docs/scenarios.md) for contract verification,
+read-after-write state verification, and cleanup.
 
 ```yaml
 name: User Management Test
@@ -822,11 +872,29 @@ kaktoos run ... --output-format junit
 
 The default output format is human-readable text.
 
-JUnit behavior:
+A failed step in JSON output carries `failure_category` and redacted `evidence`:
 
-- Failed assertions are reported as `<failure>`
-- Conditions evaluating to false are reported as `<failure>`
-- Infrastructure problems such as network, timeout, variable, or template errors are reported as `<error>`
+```json
+{
+  "name": "read back",
+  "status": "FAILED",
+  "failure_category": "assertion_failed",
+  "evidence": {
+    "method": "GET",
+    "url": "https://api.example.com/orders/o-1",
+    "status_code": 404,
+    "request_headers": {"Authorization": "***"},
+    "response_body": "{\"error\":\"not found\"}"
+  }
+}
+```
+
+Both keys are omitted on passing steps, so existing passing output is unchanged.
+
+JUnit behavior, routed by `failure_category`:
+
+- `assertion_failed` and `contract_mismatch` are reported as `<failure>`
+- Everything else (`auth_failure`, `rate_limited`, `server_error`, `transport_failure`, `timeout`, `config_error`) is reported as `<error>`
 
 ---
 
