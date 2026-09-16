@@ -1390,7 +1390,7 @@ gofmt -w .
 
 # Project Status
 
-**Kaktoos v1.2.0**
+**Kaktoos v1.3.0**
 
 Kaktoos currently focuses on:
 
