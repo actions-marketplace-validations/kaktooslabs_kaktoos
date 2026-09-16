@@ -1,0 +1,4 @@
+# Ownership is contextual, not guaranteed truth.
+*                     @platform-team
+payment-service/      @payments-team
+checkout-service/     @checkout-team

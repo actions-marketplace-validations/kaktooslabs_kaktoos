@@ -1,0 +1,9 @@
+name: payment-create
+tags: [payments, smoke]
+steps:
+  - name: create a payment
+    operation: createPayment
+    request:
+      body: '{"amount": 100}'
+    assert:
+      status: 201

@@ -152,4 +152,5 @@ error naming the variable and step.
 - **Which operation a name resolves to** → the OpenAPI spec's `operationId`s
 
 See the root [README.md](../README.md) for those and for `--scenario-inline`,
-`kaktoos mcp`, and the GitHub Action.
+`kaktoos mcp`, and the GitHub Action. For how Kaktoos decides *which* of these
+scenarios to run after a change, see [impact.md](impact.md).

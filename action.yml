@@ -27,6 +27,14 @@ inputs:
     description: Post/update a PR comment with the result (same-repo PRs only).
     required: false
     default: "true"
+  impact:
+    description: Analyze what this PR changes and what it could affect. Opt-in; off by default.
+    required: false
+    default: "false"
+  impact-verify:
+    description: With impact, run only the existing workflows the impact plan selected instead of every scenario.
+    required: false
+    default: "false"
 
 outputs:
   passed:
@@ -69,14 +77,64 @@ runs:
         chmod +x /tmp/kaktoos
         echo "/tmp" >> "$GITHUB_PATH"
 
+    - name: Analyze impact
+      id: impact
+      if: inputs.impact == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        set -uo pipefail
+        kaktoos impact --pr "${{ github.event.pull_request.number }}" --format json > /tmp/kaktoos-impact.json
+        status=$?
+        if [ "$status" -ne 0 ]; then
+          echo "::warning::kaktoos impact failed (exit $status); continuing without impact analysis"
+          echo "scenarios=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        scenarios=$(jq -r '[.verification.workflows[]?.file] | join(" ")' /tmp/kaktoos-impact.json 2>/dev/null)
+        echo "scenarios=$scenarios" >> "$GITHUB_OUTPUT"
+
+        {
+          echo "## Kaktoos impact analysis"
+          echo
+          echo "**Changed**"
+          jq -r '.changed[]? | "- \(.name)"' /tmp/kaktoos-impact.json 2>/dev/null
+          echo
+          echo "**Potential impact** (reachable from the change — not proof of a defect)"
+          jq -r '.potential_impact[]? | "- \(.entity.kind) \(.entity.name)"' /tmp/kaktoos-impact.json 2>/dev/null
+          echo
+          echo "**Owners**"
+          jq -r '.owners[]? | "- \(.name) (\(.files | join(", ")))"' /tmp/kaktoos-impact.json 2>/dev/null
+          echo
+          echo "**Verification** (existing Kaktoos workflows)"
+          jq -r '.verification.workflows[]? | "- \(.name) (\(.file))"' /tmp/kaktoos-impact.json 2>/dev/null
+          echo
+        } >> "$GITHUB_STEP_SUMMARY"
+
     - name: Run kaktoos
       id: run
       shell: bash
       run: |
         set -uo pipefail
+        scenario_args=()
+        if [ "${{ inputs.impact-verify }}" = "true" ]; then
+          for s in ${{ steps.impact.outputs.scenarios }}; do scenario_args+=(--scenario "$s"); done
+          if [ ${#scenario_args[@]} -eq 0 ]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+            echo '{"summary":{"passed":0,"total":0},"executions":[]}' > /tmp/kaktoos-result.json
+            {
+              echo "## Kaktoos"
+              echo
+              echo "Nothing to verify: no existing workflow covers the potentially affected behavior."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+        else
+          for s in ${{ inputs.scenario }}; do scenario_args+=(--scenario "$s"); done
+        fi
+
         args=(run --openapi "${{ inputs.openapi }}" --env "${{ inputs.env }}" \
-          --schema-mode "${{ inputs.schema-mode }}" --output-format json)
-        for s in ${{ inputs.scenario }}; do args+=(--scenario "$s"); done
+          --schema-mode "${{ inputs.schema-mode }}" --output-format json "${scenario_args[@]}")
 
         kaktoos "${args[@]}" > /tmp/kaktoos-result.json
         status=$?

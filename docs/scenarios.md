@@ -104,3 +104,10 @@ Precedence, highest first: timeout → transport → config → status-derived
 (auth/rate-limit/5xx) → contract → assertion. So a 401 that also fails
 `assert: {status: 200}` reports as `auth_failure` — the auth problem is the
 cause, the failed assertion is the symptom.
+
+## Verifying what a change affects
+
+A scenario written here becomes one of the workflows `kaktoos impact` and the
+`get_verification_plan` MCP tool select when the operations or service it
+covers show up in a change's potential impact. See
+[docs/impact.md](impact.md).
