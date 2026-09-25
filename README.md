@@ -1,11 +1,23 @@
 # Kaktoos
 
-> Independent verification for API integrations — including code written by AI coding agents.
+> Engineering context and independent verification for AI coding agents.
+> Understand before you change. Verify after you change.
 
-Kaktoos verifies API integrations against **OpenAPI contracts and real API behavior**.
+Kaktoos gives AI coding agents grounded context about an existing engineering
+system before they design or implement a change — services, APIs, workflows,
+dependencies, ownership. After a change is made, Kaktoos analyzes it,
+identifies potential impact, and can run existing verification workflows
+against the affected behavior.
+
+Kaktoos also verifies API integrations against **OpenAPI contracts and real
+API behavior**. That verification engine works independently of AI and can be
+used locally or in CI/CD — it's what runs under the hood on both sides of the
+before/after loop.
 
 Use Kaktoos to:
 
+- Give an AI agent grounded engineering context before it designs a change
+- Analyze a change/PR and identify what it could affect, then run the existing workflows that verify it
 - Run multi-step API workflows
 - Verify responses against OpenAPI contracts
 - Catch integration mistakes independently of application tests
@@ -14,31 +26,85 @@ Use Kaktoos to:
 - Keep API verification scenarios version-controlled in Git
 
 ```text
-AI coding agent / Developer
-          │
-          ▼
-   API integration code
-          │
-          ▼
-       Kaktoos
-          │
-          ├── Discover OpenAPI operations
-          ├── Execute real API workflows
-          ├── Validate responses against OpenAPI
-          ├── Evaluate assertions
-          └── Return structured failures
+        AI coding agent / Developer
                     │
-                    ▼
-              Fix integration
-                    │
-                    ▼
-               Run again
-                    │
-                    ▼
-                  PASS
+        ┌───────────┴───────────┐
+        │                       │
+        ▼                       ▼
+  BEFORE CHANGE             AFTER CHANGE
+        │                       │
+   Kaktoos MCP                  PR
+        │                       │
+        ▼                       ▼
+  Engineering               Change
+    Context                Analysis
+        │                       │
+        ▼                       ▼
+   AI designs             Potential
+   the change               Impact
+                                │
+                                ▼
+                          Existing Kaktoos
+                            Workflows
+                                │
+                                ▼
+                           Verification
+                                │
+                                ▼
+                            Evidence
 ```
 
-Kaktoos works entirely without AI. AI coding agents are an optional interface through the Model Context Protocol (MCP).
+Kaktoos works entirely without AI. AI coding agents are an optional interface through the Model Context Protocol (MCP). Kaktoos is not a knowledge base, a chatbot, or a coding agent — it grounds an agent's understanding of the existing system and independently checks its work.
+
+---
+
+# Contents
+
+**Start here**
+
+- [Engineering Context and Change Impact](docs/impact.md) — understand before you change, verify after
+- [Why Kaktoos?](#why-kaktoos)
+- [Key Capabilities](#key-capabilities)
+- [How It Works](#how-it-works)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Example](#example)
+
+**Writing scenarios**
+
+- [Configuration](#configuration)
+- [Assertions](#assertions)
+- [Response Schema Validation](#response-schema-validation)
+- [Inline Scenarios](#inline-scenarios)
+- [Scenario file reference](docs/scenario-reference.md) — every field
+- [Verification patterns](docs/scenarios.md) — contract, read-after-write state, cleanup
+
+**AI coding agents**
+
+- [Using Kaktoos from an AI Coding Agent](#using-kaktoos-from-an-ai-coding-agent)
+- [Typical AI Agent Workflow](#typical-ai-agent-workflow)
+- [Typical AI Feature Development Workflow](#typical-ai-feature-development-workflow)
+- [MCP Client Configuration](#mcp-client-configuration)
+- [MCP tools reference](docs/mcp.md) — all 12 tools
+
+**Automation**
+
+- [GitHub Action](#github-action)
+- [CI/CD](#cicd)
+- [Workflow Automation](#workflow-automation)
+- [Machine-Readable Output](#machine-readable-output)
+- [Execution Traces](#execution-traces)
+- [Webhooks](#webhooks)
+
+**Reference**
+
+- [Project Structure](#project-structure)
+- [Commands](#commands)
+- [Examples](#examples)
+- [Development](#development)
+- [Project Status](#project-status)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
@@ -68,9 +134,81 @@ The OpenAPI specification provides the API contract. Kaktoos verifies that the r
 
 > **Git tracks what changed. Kaktoos tells you whether it still works.**
 
+## The other half: changing a system you don't fully understand
+
+An AI coding agent can find code without understanding the engineering system
+around it. Searching a repo surfaces the file; it doesn't surface:
+
+- related services
+- consumers of the API being changed
+- existing verification workflows that cover the behavior
+- declared dependencies
+- ownership
+- related engineering work
+- architecture and documentation context
+
+Kaktoos exposes that context through MCP **before** an agent designs a change,
+so the design starts from what already exists rather than from a guess.
+
+**After** implementation, Kaktoos analyzes the resulting change or PR, reports
+what it could affect, and runs the existing verification workflows covering
+that behavior.
+
+Kaktoos does not prove business correctness and does not decide the right
+architecture. It supplies grounded context and independent evidence; the design
+decision stays with the developer or agent.
+
 ---
 
 ## Key Capabilities
+
+### Engineering context and change impact
+
+Before an AI agent designs a change, it can ask Kaktoos what already exists:
+services, APIs, workflows, dependencies, owners, related work — derived from
+the repository and the engineering sources available to it, never invented.
+
+After the change, `kaktoos impact` (or the `analyze_change` MCP tool) reports
+what actually changed and what could be affected, clearly separated:
+
+| | Meaning |
+| --- | --- |
+| **Changed** | Fact — what the diff actually touched |
+| **Potential impact** | Reachability — what is connected to the change and worth verifying. Not a claim that anything is broken |
+
+It then points at the **existing** Kaktoos workflows that verify that
+behavior — it never generates one.
+
+```text
+Feature request
+     ↓
+Kaktoos MCP
+     ↓
+Existing system context
+     ↓
+AI designs change
+     ↓
+PR
+     ↓
+kaktoos impact
+     ↓
+Potential impact
+     ↓
+Existing verification workflows
+     ↓
+Actual verification
+     ↓
+Evidence
+```
+
+Every relationship Kaktoos reports carries a reason (`why`) and is flagged
+`inferred` when it came from convention rather than an explicit declaration.
+Kaktoos matches names, paths, operations and declared dependencies — it does
+not claim semantic understanding of your code.
+
+This is not a knowledge base or a second workflow engine. It's the same
+deterministic core as the rest of Kaktoos, reused. See
+[docs/impact.md](docs/impact.md) and [docs/mcp.md](docs/mcp.md).
 
 ### Multi-step API workflows
 
@@ -105,6 +243,52 @@ This can catch:
 - Incorrect response types
 - Failed enum/pattern constraints
 - Other schema violations
+
+### State verification, not just responses
+
+A `200` proves the API answered. It does not prove anything was stored.
+
+Kaktoos verifies observable state with steps you already know how to write —
+write, extract the id, read it back, assert on what came back, then clean up:
+
+```text
+POST /orders  → 200 {"id":"o-1"}     ← the API says it worked
+     │ $.id
+     ▼
+GET /orders/o-1 → 404                ← the state says otherwise
+     │
+     ▼
+FAILED: assertion_failed
+```
+
+Cleanup steps marked `always_run: true` still execute after a failure, so test
+data is removed even when the verification in the middle failed.
+
+See [docs/scenarios.md](docs/scenarios.md).
+
+### Deterministic failure classification
+
+Every failed step carries one machine-readable `failure_category`, computed
+once by the engine and identical in the CLI, JSON, JUnit, MCP, and the GitHub
+Action — no consumer parses error text:
+
+| Category | Meaning |
+| --- | --- |
+| `contract_mismatch` | Response violated the OpenAPI schema (strict mode) |
+| `assertion_failed` | A scenario `assert` or `condition` failed |
+| `auth_failure` | HTTP 401 or 403 |
+| `rate_limited` | HTTP 429 |
+| `server_error` | HTTP 5xx |
+| `transport_failure` | No usable response (connection refused, DNS) |
+| `timeout` | Step or workflow deadline exceeded |
+| `config_error` | Unknown operation, unresolved variable, bad JSONPath |
+
+A 401 that also fails `assert: {status: 200}` reports as `auth_failure` — the
+cause, not the symptom.
+
+Each failure also carries structured evidence: method, URL, status, request and
+response headers and bodies, with `Authorization`, `Cookie`, `X-Api-Key` and
+friends redacted to `***`.
 
 ### AI coding agent integration
 
@@ -172,6 +356,7 @@ environment.yml
      ├── Substitute variables
      ├── Validate response schemas
      ├── Evaluate assertions
+     ├── Classify failures + capture redacted evidence
      └── Report results
 ```
 
@@ -322,7 +507,10 @@ headers:
 
 ## Scenario
 
-Scenarios describe multi-step API workflows.
+Scenarios describe multi-step API workflows. See
+[docs/scenario-reference.md](docs/scenario-reference.md) for every field, and
+[docs/scenarios.md](docs/scenarios.md) for contract verification,
+read-after-write state verification, and cleanup.
 
 ```yaml
 name: User Management Test
@@ -413,6 +601,22 @@ Each step can define:
 - Assertions
 
 Variables can be extracted from one response and used in subsequent steps.
+
+## kaktoos.yaml
+
+Optional. Declares services so `kaktoos impact` and the MCP context tools can
+map changed files to APIs, workflows, and owners. Without it, Kaktoos falls
+back to convention and marks the derived relationships `inferred`. See
+[docs/impact.md](docs/impact.md#kaktoosyaml).
+
+```yaml
+services:
+  - name: payment-service
+    paths: ["payment-service/**"]
+    openapi: payment-service/openapi.yml
+    scenarios: payment-service/scenarios/
+    depends_on: [transaction-service]
+```
 
 ---
 
@@ -565,13 +769,43 @@ AI coding agent
 kaktoos mcp
 ```
 
-Kaktoos exposes three MCP tools over stdio.
+Kaktoos exposes twelve MCP tools over stdio, in three groups. Full request and
+response shapes are in [docs/mcp.md](docs/mcp.md).
+
+**Verification (execution)**
 
 | Tool | Purpose |
 | --- | --- |
 | `list_operations` | List the operations declared by an OpenAPI specification |
 | `validate_scenario` | Validate a scenario before execution |
 | `run_workflow` | Execute a scenario against a real API and return structured results |
+
+**Engineering context (before you change)**
+
+| Tool | Purpose |
+| --- | --- |
+| `get_related_context` | Given a plain-language description, return the services, APIs, workflows, owners, related work and docs already in the repo that touch it |
+| `get_dependencies` | For an entity: what it depends on, what depends on it, what it exposes |
+| `get_owners` | CODEOWNERS lookup for a set of paths (contextual, not a guarantee) |
+| `get_related_work` | Work items related to a change (issue keys from branch/commit text today) |
+| `get_related_documents` | Documentation related to a set of terms |
+| `propose_change` | Grounded existing-system context for a proposed change; returns no design of its own |
+
+**Change impact (after you change)**
+
+| Tool | Purpose |
+| --- | --- |
+| `analyze_change` | Analyze a change (working tree, commit, base/head range, or PR) — what changed vs. what could be affected |
+| `get_verification_plan` | Existing Kaktoos workflows that verify the potentially affected behavior; never generates one |
+| `run_verification` | Execute a scenario named by the plan, through the same engine `kaktoos run` uses |
+
+`get_related_work` and `get_related_documents` sit behind provider interfaces.
+Today only local, deterministic signals ship: issue keys extracted from branch
+and commit text for work items, and no document provider at all — that tool
+reports `available: false` with a reason rather than pretending no
+documentation exists. A Jira or Confluence provider can be added later behind
+the same interface. Jira and Confluence are context sources, not part of the
+product.
 
 ### `list_operations`
 
@@ -672,6 +906,49 @@ The agent can then use that information to investigate and fix the integration.
 
 ---
 
+# Typical AI Feature Development Workflow
+
+The loop above verifies an integration. This one brackets a feature change.
+
+1. A developer gives the agent a feature request.
+2. The agent asks Kaktoos for related engineering context (`get_related_context` or `propose_change`).
+3. Kaktoos returns the relevant services, APIs, workflows, dependencies, ownership and whatever related context is available — grounded in the repository.
+4. The agent uses that context to design the change.
+5. The agent implements the change.
+6. The agent opens a PR.
+7. Kaktoos analyzes the change (`analyze_change` / `kaktoos impact`).
+8. Kaktoos reports potential impact.
+9. Kaktoos identifies the existing verification workflows covering it (`get_verification_plan`).
+10. Kaktoos runs them (`run_verification` / `kaktoos impact --verify`).
+11. The agent investigates the structured failures, if any.
+
+```text
+Feature request
+      ↓
+get_related_context / propose_change
+      ↓
+Services · APIs · workflows · dependencies · owners
+      ↓
+Agent designs and implements the change      ← Kaktoos writes no code
+      ↓
+PR
+      ↓
+analyze_change
+      ↓
+Changed  +  Potential impact
+      ↓
+get_verification_plan        ← existing workflows only
+      ↓
+run_verification
+      ↓
+Evidence
+```
+
+Kaktoos does not write the implementation and does not create the PR. It
+supplies context on the way in and evidence on the way out.
+
+---
+
 # MCP Client Configuration
 
 A compatible MCP client can start Kaktoos using:
@@ -714,6 +991,8 @@ Kaktoos provides a composite GitHub Action for running API verification in CI.
 | `schema-mode` | `warn` | `off`, `warn`, or `strict` |
 | `version` | action ref | Kaktoos release to install |
 | `comment` | `true` | Post/update a PR comment with the result |
+| `impact` | `false` | Add a Changed / Potential impact / Owners / Verification summary for the PR |
+| `impact-verify` | `false` | With `impact`, run only the existing workflows the impact plan selected |
 
 The action:
 
@@ -722,6 +1001,25 @@ The action:
 3. Writes a per-step result table to the GitHub Actions job summary
 4. Propagates Kaktoos's exit code
 5. Maintains a single PR comment instead of creating a new comment on every run
+
+## Impact analysis in CI
+
+Both impact inputs are opt-in and default to `false`; with them off, the action
+behaves exactly as before.
+
+With `impact: true`, on a pull request the action runs
+`kaktoos impact --pr <number> --format json` and appends a **Changed /
+Potential impact / Owners / Verification** section to the GitHub Actions job
+summary. If impact analysis fails, it emits a warning and the run continues.
+The PR comment itself is unchanged — it still reports the verification result
+only.
+
+With `impact-verify: true`, the scenarios selected by the impact plan replace
+the `scenario` input for that run, so only the workflows covering the
+potentially affected behavior execute. They run through the **existing** run
+step and the existing engine — impact verification introduces no second
+verification path. If the plan selects nothing, the action reports "nothing to
+verify" and passes.
 
 ## Fork Pull Requests
 
@@ -822,11 +1120,29 @@ kaktoos run ... --output-format junit
 
 The default output format is human-readable text.
 
-JUnit behavior:
+A failed step in JSON output carries `failure_category` and redacted `evidence`:
 
-- Failed assertions are reported as `<failure>`
-- Conditions evaluating to false are reported as `<failure>`
-- Infrastructure problems such as network, timeout, variable, or template errors are reported as `<error>`
+```json
+{
+  "name": "read back",
+  "status": "FAILED",
+  "failure_category": "assertion_failed",
+  "evidence": {
+    "method": "GET",
+    "url": "https://api.example.com/orders/o-1",
+    "status_code": 404,
+    "request_headers": {"Authorization": "***"},
+    "response_body": "{\"error\":\"not found\"}"
+  }
+}
+```
+
+Both keys are omitted on passing steps, so existing passing output is unchanged.
+
+JUnit behavior, routed by `failure_category`:
+
+- `assertion_failed` and `contract_mismatch` are reported as `<failure>`
+- Everything else (`auth_failure`, `rate_limited`, `server_error`, `transport_failure`, `timeout`, `config_error`) is reported as `<error>`
 
 ---
 
@@ -981,6 +1297,26 @@ Enable response schema validation:
 kaktoos run --schema-mode strict
 ```
 
+## Impact
+
+Analyze what a change touches and which workflows verify it:
+
+```bash
+kaktoos impact                                    # working tree
+kaktoos impact --commit <sha>
+kaktoos impact --base main --head feature/payment
+kaktoos impact --pr 184                           # requires the gh CLI
+kaktoos impact --format json --why
+```
+
+Run the workflows the plan selected:
+
+```bash
+kaktoos impact --verify --openapi openapi.yml --env env.yml
+```
+
+See [docs/impact.md](docs/impact.md).
+
 ## MCP
 
 Expose Kaktoos to an AI coding agent:
@@ -988,6 +1324,8 @@ Expose Kaktoos to an AI coding agent:
 ```bash
 kaktoos mcp
 ```
+
+All tools are documented in [docs/mcp.md](docs/mcp.md).
 
 ## Serve
 
@@ -1052,7 +1390,7 @@ gofmt -w .
 
 # Project Status
 
-**Kaktoos v1.1.0**
+**Kaktoos v1.3.0**
 
 Kaktoos currently focuses on:
 
@@ -1060,9 +1398,12 @@ Kaktoos currently focuses on:
 - OpenAPI-powered API execution
 - Multi-step API workflows
 - Response schema validation
+- Read-after-write state verification with `always_run` cleanup
+- Deterministic failure classification with redacted evidence, shared across CLI, JSON, JUnit, MCP, and the GitHub Action
 - Git-native API testing
 - AI coding agent integration through MCP
 - CI/CD verification through GitHub Actions
+- Engineering context and change impact analysis (`kaktoos impact`, MCP context tools)
 
 The core engine works independently of AI and external services.
 

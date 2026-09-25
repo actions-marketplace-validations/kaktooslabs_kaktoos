@@ -1,0 +1,10 @@
+services:
+  - name: payment-service
+    paths: ["payment-service/**"]
+    openapi: payment-service/openapi.yml
+    scenarios: payment-service/scenarios
+  - name: checkout-service
+    paths: ["checkout-service/**"]
+    depends_on: [payment-service]
+  - name: reporting-service
+    paths: ["reporting-service/**"]

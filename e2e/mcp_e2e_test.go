@@ -193,13 +193,19 @@ func TestE2E_MCP_ToolsList(t *testing.T) {
 	for _, tool := range tools {
 		got[tool.(map[string]any)["name"].(string)] = true
 	}
-	for _, want := range []string{"list_operations", "validate_scenario", "run_workflow"} {
+	for _, want := range []string{
+		"list_operations", "validate_scenario", "run_workflow",
+		"get_related_context", "get_dependencies", "get_owners",
+		"get_related_work", "get_related_documents",
+		"analyze_change", "get_verification_plan", "run_verification", "propose_change",
+	} {
 		if !got[want] {
 			t.Errorf("tool %q missing from tools/list; got %v", want, got)
 		}
 	}
-	if len(tools) != 3 {
-		t.Errorf("expected exactly three tools, got %d", len(tools))
+	// 3 verification tools + 9 engineering-context/change-impact tools (Phase 4).
+	if len(tools) != 12 {
+		t.Errorf("expected exactly twelve tools, got %d", len(tools))
 	}
 }
 

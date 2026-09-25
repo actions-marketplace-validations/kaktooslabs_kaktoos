@@ -3,7 +3,8 @@
 Field-by-field reference for `scenario.yml`. Source of truth is the code —
 `internal/scenario/types.go` (shape) and `internal/scenario/loader.go`
 (validation) — this doc mirrors it. Unknown fields at the scenario or step
-level are a load error, not a silent ignore.
+level are a load error, not a silent ignore. For patterns (contract, read-after-write
+state verification, cleanup) see [scenarios.md](scenarios.md).
 
 ## Top level
 
@@ -66,6 +67,7 @@ Every step is either an **operation step** (calls a real endpoint) or a
 | `assert` | AssertSpec | |
 | `timeout` | duration string | per-step; overrides no default |
 | `retry` | RetryPolicy | not allowed on condition steps |
+| `always_run` | bool | run even after an earlier step failed (cleanup); can never rescue a failed scenario; not allowed on condition steps. See [scenarios.md](scenarios.md#cleanup-with-always_run) |
 
 ### `request`
 
@@ -150,4 +152,5 @@ error naming the variable and step.
 - **Which operation a name resolves to** → the OpenAPI spec's `operationId`s
 
 See the root [README.md](../README.md) for those and for `--scenario-inline`,
-`kaktoos mcp`, and the GitHub Action.
+`kaktoos mcp`, and the GitHub Action. For how Kaktoos decides *which* of these
+scenarios to run after a change, see [impact.md](impact.md).

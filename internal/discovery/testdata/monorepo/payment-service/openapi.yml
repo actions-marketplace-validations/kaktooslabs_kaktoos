@@ -1,0 +1,52 @@
+openapi: 3.0.3
+
+info:
+  title: Payment Service
+  version: 1.0.0
+
+paths:
+  /payments:
+    post:
+      operationId: createPayment
+      summary: Create a payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+              properties:
+                amount:
+                  type: integer
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+  /payments/{id}:
+    get:
+      operationId: getPayment
+      summary: Get a payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string

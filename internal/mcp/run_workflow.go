@@ -13,6 +13,7 @@ import (
 	"github.com/kaktooslabs/kaktoos/internal/openapi"
 	"github.com/kaktooslabs/kaktoos/internal/scenario"
 	"github.com/kaktooslabs/kaktoos/internal/schema"
+	"github.com/kaktooslabs/kaktoos/internal/verification"
 )
 
 type RunWorkflowInput struct {
@@ -41,12 +42,17 @@ type StepOutcome struct {
 	Name       string `json:"name"`
 	Status     string `json:"status"`
 	StatusCode int    `json:"status_code,omitempty"`
-	// Error is set for transport/infrastructure problems (no StatusCode) or
-	// as the headline reason for a failure.
-	Error             string             `json:"error,omitempty"`
-	AssertionFailures []AssertionFailure `json:"assertion_failures,omitempty"`
-	SchemaViolations  []SchemaViolation  `json:"schema_violations,omitempty"`
-	UndeclaredFields  []string           `json:"undeclared_fields,omitempty" jsonschema:"informational only; never causes failure"`
+	// Error is the headline reason for a failure.
+	Error string `json:"error,omitempty"`
+	// FailureCategory is the engine's deterministic failure class: one of
+	// contract_mismatch, assertion_failed, auth_failure, rate_limited,
+	// server_error, transport_failure, timeout, config_error. Empty when passed.
+	FailureCategory string `json:"failure_category,omitempty"`
+	// Evidence is the redacted request/response behind a failure.
+	Evidence          *verification.Evidence `json:"evidence,omitempty"`
+	AssertionFailures []AssertionFailure     `json:"assertion_failures,omitempty"`
+	SchemaViolations  []SchemaViolation      `json:"schema_violations,omitempty"`
+	UndeclaredFields  []string               `json:"undeclared_fields,omitempty" jsonschema:"informational only; never causes failure"`
 }
 
 type RunWorkflowOutput struct {
@@ -113,6 +119,8 @@ func toOutput(r engine.ExecutionResult) RunWorkflowOutput {
 			Status:           string(s.Status),
 			StatusCode:       s.StatusCode,
 			Error:            s.Error,
+			FailureCategory:  string(s.FailureCategory),
+			Evidence:         s.Evidence,
 			UndeclaredFields: s.UndeclaredFields,
 		}
 		for _, a := range s.Assertions {
